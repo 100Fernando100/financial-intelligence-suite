@@ -8,7 +8,7 @@
 
 ## 🚀 Live Demo
 
-**[👉 View Live Dashboard](https://10fernando10/financial-intelligence-suite)**
+**[👉 View Live Dashboard](https://100fernando100.github.io/financial-intelligence-suite/)**
 
 ## 🎯 Workflows
 
