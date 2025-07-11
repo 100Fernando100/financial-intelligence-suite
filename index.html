@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG AI Platform - Multi-Pipeline Processing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a2a2a 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            height: 70px;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: 40px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid rgba(0, 255, 136, 0.5);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #00ff88;
+        }
+
+        .transform-btn {
+            margin-left: auto;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+            border: none;
+            border-radius: 8px;
+            color: #000;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .transform-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 136, 0.4);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            min-height: calc(100vh - 70px);
+        }
+
+        /* Left Panel - Terminal */
+        .left-panel {
+            width: 320px;
+            background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .terminal-header {
+            padding: 15px 20px;
+            background: #1a1a1a;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot.red { background: #ff5f56; }
+        .dot.yellow { background: #ffbd2e; }
+        .dot.green { background: #27c93f; }
+
+        .terminal-title {
+            font-size: 12px;
+            color: #888;
+            margin-left: auto;
+        }
+
+        .terminal-content {
+            flex: 1;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            overflow-y: auto;
+        }
+
+        .terminal-line {
+            margin-bottom: 4px;
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .terminal-line.timestamp { color: #666; }
+        .terminal-line.success { color: #00ff88; }
+        .terminal-line.warning { color: #ff9800; }
+        .terminal-line.error { color: #ff3b30; }
+        .terminal-line.info { color: #00d4ff; }
+        .terminal-line.processing { color: #ffbd2e; }
+
+        /* Dashboard Area */
+        .dashboard-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 212, 255, 0.05) 0%, transparent 70%);
+        }
+
+        /* Background Grid */
+        .background-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.2;
+            pointer-events: none;
+        }
+
+        /* RAG Title */
+        .rag-title-section {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 100;
+        }
+
+        .rag-title {
+            font-size: 48px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 50%, #ff6b35 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 8px;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .rag-subtitle {
+            font-size: 14px;
+            color: #888;
+            margin-top: 10px;
+            letter-spacing: 2px;
+        }
+
+        /* Central Hub */
+        .central-hub {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 180px;
+            height: 180px;
+            z-index: 50;
+        }
+
+        .hub-core {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border: 3px solid #00d4ff;
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                0 0 50px rgba(0, 212, 255, 0.6),
+                inset 0 0 30px rgba(0, 212, 255, 0.2);
+            animation: hubPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes hubPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 50px rgba(0, 212, 255, 0.6); }
+            50% { transform: scale(1.05); box-shadow: 0 0 80px rgba(0, 212, 255, 0.8); }
+        }
+
+        .hub-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .hub-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+
+        /* Workflow Nodes - 3 Different RAGs */
+        .workflow-node {
+            position: absolute;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 220px;
+            min-height: 140px;
+        }
+
+        .workflow-node:hover {
+            transform: translateY(-10px) scale(1.05);
+            border-color: currentColor;
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.3);
+        }
+
+        .workflow-node.active {
+            border-color: currentColor;
+            box-shadow: 0 0 30px currentColor;
+            animation: activeNode 2s ease-in-out infinite;
+        }
+
+        @keyframes activeNode {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Translation Workflow */
+        .workflow-translation {
+            top: 20%;
+            right: 10%;
+            color: #00ff88;
+            border-color: rgba(0, 255, 136, 0.3);
+        }
+
+        .workflow-translation.active {
+            border-color: #00ff88;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
+        }
+
+        /* Legal RAG Workflow */
+        .workflow-legal {
+            top: 45%;
+            right: 5%;
+            color: #00d4ff;
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .workflow-legal.active {
+            border-color: #00d4ff;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.6);
+        }
+
+        /* Financial RAG Workflow */
+        .workflow-financial {
+            bottom: 15%;
+            right: 10%;
+            color: #ff6b35;
+            border-color: rgba(255, 107, 53, 0.3);
+        }
+
+        .workflow-financial.active {
+            border-color: #ff6b35;
+            box-shadow: 0 0 30px rgba(255, 107, 53, 0.6);
+        }
+
+        .workflow-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+
+        .workflow-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: currentColor;
+        }
+
+        .workflow-description {
+            font-size: 12px;
+            color: #b3b3b3;
+            line-height: 1.4;
+        }
+
+        .workflow-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: statusBlink 2s ease-in-out infinite;
+        }
+
+        @keyframes statusBlink {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Component Nodes */
+        .component-node {
+            position: absolute;
+            width: 100px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .component-node:hover {
+            transform: translateY(-5px);
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .comp-1 { top: 25%; left: 15%; }
+        .comp-2 { top: 45%; left: 10%; }
+        .comp-3 { bottom: 30%; left: 15%; }
+        .comp-4 { bottom: 15%; left: 30%; }
+
+        .component-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .component-title {
+            font-size: 10px;
+            text-align: center;
+            color: #888;
+        }
+
+        /* Right Panel - Live Console */
+        .right-panel {
+            width: 400px;
+            background: #000;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .console-header {
+            padding: 15px 20px;
+            background: #1a1a1a;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .console-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #00d4ff;
+        }
+
+        .console-content {
+            flex: 1;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            line-height: 1.5;
+            overflow-y: auto;
+            background: #000;
+        }
+
+        .console-line {
+            margin-bottom: 2px;
+            white-space: pre-wrap;
+        }
+
+        .console-line.timestamp { color: #666; }
+        .console-line.translation { color: #00ff88; }
+        .console-line.legal { color: #00d4ff; }
+        .console-line.financial { color: #ff6b35; }
+        .console-line.success { color: #4caf50; }
+        .console-line.error { color: #ff3b30; }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: #00d4ff;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .right-panel { width: 350px; }
+            .workflow-node { transform: scale(0.9); }
+        }
+
+        @media (max-width: 1200px) {
+            .left-panel { width: 280px; }
+            .workflow-node { width: 180px; min-height: 120px; }
+        }
+
+        @media (max-width: 968px) {
+            .main-content { flex-direction: column; }
+            .left-panel, .right-panel { width: 100%; height: 300px; }
+            .workflow-node { position: relative; margin: 10px auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">RAG AI Platform</div>
+        <div class="status-indicator">
+            ✅ All Systems Operational
+        </div>
+        <button class="transform-btn" id="startDemoBtn">▶️ Start RAG Demo</button>
+    </div>
+
+    <div class="container">
+        <div class="main-content">
+            <!-- Left Terminal -->
+            <div class="left-panel">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <div class="dot red"></div>
+                        <div class="dot yellow"></div>
+                        <div class="dot green"></div>
+                    </div>
+                    <div class="terminal-title">system.terminal</div>
+                </div>
+                <div class="terminal-content" id="leftTerminal">
+                    <div class="terminal-line timestamp">[09:45:23] System initialized...</div>
+                    <div class="terminal-line info">[09:45:24] RAG Platform v3.0 Ready</div>
+                    <div class="terminal-line success">[09:45:25] All workflows operational</div>
+                </div>
+            </div>
+
+            <!-- Dashboard -->
+            <div class="dashboard-area">
+                <div class="background-grid"></div>
+
+                <!-- RAG Title -->
+                <div class="rag-title-section">
+                    <div class="rag-title">R.A.G</div>
+                    <div class="rag-subtitle">RETRIEVAL • AUGMENTED • GENERATION</div>
+                </div>
+
+                <!-- Central Hub -->
+                <div class="central-hub">
+                    <div class="hub-core">
+                        <div class="hub-icon">🧠</div>
+                        <div class="hub-title">AI ENGINE</div>
+                    </div>
+                </div>
+
+                <!-- Three RAG Workflows -->
+                <div class="workflow-node workflow-translation" id="workflow1">
+                    <div class="workflow-status"></div>
+                    <div class="workflow-icon">🌐</div>
+                    <div class="workflow-title">Translation RAG</div>
+                    <div class="workflow-description">Multi-language processing with real-time translation and transcription</div>
+                </div>
+
+                <div class="workflow-node workflow-legal" id="workflow2">
+                    <div class="workflow-status"></div>
+                    <div class="workflow-icon">⚖️</div>
+                    <div class="workflow-title">Legal RAG</div>
+                    <div class="workflow-description">Compliance verification and regulatory document analysis</div>
+                </div>
+
+                <div class="workflow-node workflow-financial" id="workflow3">
+                    <div class="workflow-status"></div>
+                    <div class="workflow-icon">📊</div>
+                    <div class="workflow-title">Financial RAG</div>
+                    <div class="workflow-description">Real-time financial data aggregation and report generation</div>
+                </div>
+
+                <!-- Component Nodes -->
+                <div class="component-node comp-1">
+                    <div class="component-icon">🎤</div>
+                    <div class="component-title">Audio Input</div>
+                </div>
+
+                <div class="component-node comp-2">
+                    <div class="component-icon">🗄️</div>
+                    <div class="component-title">Vector DB</div>
+                </div>
+
+                <div class="component-node comp-3">
+                    <div class="component-icon">📚</div>
+                    <div class="component-title">Knowledge Base</div>
+                </div>
+
+                <div class="component-node comp-4">
+                    <div class="component-icon">📄</div>
+                    <div class="component-title">Report Gen</div>
+                </div>
+            </div>
+
+            <!-- Right Console -->
+            <div class="right-panel">
+                <div class="console-header">
+                    <div class="console-title">> Live RAG Processing</div>
+                    <div class="terminal-dots">
+                        <div class="dot red"></div>
+                        <div class="dot yellow"></div>
+                        <div class="dot green"></div>
+                    </div>
+                </div>
+                <div class="console-content" id="rightConsole">
+                    <div class="console-line timestamp">// RAG Processing Console v3.0</div>
+                    <div class="console-line timestamp">// Waiting for input...</div>
+                    <div class="cursor"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // All event handlers and functions moved to external script
+        (function() {
+            let demoRunning = false;
+
+            // Terminal output helper
+            function addTerminalLine(text, className) {
+                className = className || '';
+                const terminal = document.getElementById('leftTerminal');
+                const line = document.createElement('div');
+                line.className = 'terminal-line ' + className;
+                line.style.animationDelay = '0s';
+                line.textContent = text;
+                terminal.appendChild(line);
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+
+            // Console output helper
+            function addConsoleLine(text, className) {
+                className = className || '';
+                const consoleEl = document.getElementById('rightConsole');
+                const cursor = consoleEl.querySelector('.cursor');
+                const line = document.createElement('div');
+                line.className = 'console-line ' + className;
+                line.textContent = text;
+                consoleEl.insertBefore(line, cursor);
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
+
+            // Sleep helper
+            function sleep(ms) {
+                return new Promise(function(resolve) {
+                    setTimeout(resolve, ms);
+                });
+            }
+
+            // Demo sequence
+            async function startDemo() {
+                if (demoRunning) return;
+                demoRunning = true;
+
+                // Reset workflows
+                document.querySelectorAll('.workflow-node').forEach(function(node) {
+                    node.classList.remove('active');
+                });
+
+                // Clear terminals
+                document.getElementById('leftTerminal').innerHTML = '';
+                document.getElementById('rightConsole').innerHTML = '<div class="cursor"></div>';
+
+                // Start sequence
+                await sleep(500);
+                
+                addTerminalLine('[09:45:30] 🔍 Incoming request detected...', 'warning');
+                
+                await sleep(1000);
+                addTerminalLine('[09:45:31] 📥 Processing multi-format input', 'info');
+                addTerminalLine('[09:45:31] 🚀 Initializing RAG pipeline...', 'info');
+
+                await sleep(1000);
+                
+                // Activate Translation RAG
+                document.getElementById('workflow1').classList.add('active');
+                addConsoleLine('// WORKFLOW 1: Translation Pipeline', 'translation');
+                addConsoleLine('[INIT] Loading language models...', 'translation');
+                await sleep(800);
+                addConsoleLine('[PROCESSING] Audio stream detected', 'translation');
+                await sleep(800);
+                addConsoleLine('[ANALYZING] Language pattern recognition', 'translation');
+                await sleep(800);
+                addConsoleLine('[TRANSCRIBING] Converting speech to text', 'translation');
+                await sleep(800);
+                addConsoleLine('[✓] Translation pipeline complete', 'success');
+                
+                addTerminalLine('[09:45:34] ✅ Translation RAG: Processing complete', 'success');
+
+                await sleep(1000);
+
+                // Activate Legal RAG
+                document.getElementById('workflow2').classList.add('active');
+                addConsoleLine('', 'timestamp');
+                addConsoleLine('// WORKFLOW 2: Legal Compliance', 'legal');
+                addConsoleLine('[INIT] Accessing regulatory database...', 'legal');
+                await sleep(800);
+                addConsoleLine('[SCANNING] 2,847 compliance documents', 'legal');
+                await sleep(800);
+                addConsoleLine('[MATCHING] Cross-referencing requirements', 'legal');
+                await sleep(800);
+                addConsoleLine('[VALIDATING] Compliance verification complete', 'legal');
+                await sleep(800);
+                addConsoleLine('[✓] Legal analysis complete', 'legal');
+                
+                addTerminalLine('[09:45:36] ✅ Legal RAG: Compliance verified', 'success');
+
+                await sleep(1000);
+
+                // Activate Financial RAG
+                document.getElementById('workflow3').classList.add('active');
+                addConsoleLine('', 'timestamp');
+                addConsoleLine('// WORKFLOW 3: Financial Analysis', 'financial');
+                addConsoleLine('[INIT] Connecting to data sources...', 'financial');
+                await sleep(800);
+                addConsoleLine('[AGGREGATING] Collecting financial metrics', 'financial');
+                await sleep(800);
+                addConsoleLine('[ANALYZING] Processing 15.2K data points', 'financial');
+                await sleep(800);
+                addConsoleLine('[CALCULATING] Generating insights', 'financial');
+                await sleep(800);
+                addConsoleLine('[VISUALIZING] Creating report graphics', 'financial');
+                await sleep(800);
+                addConsoleLine('[✓] Financial analysis complete', 'financial');
+                
+                addTerminalLine('[09:45:38] ✅ Financial RAG: Report generated', 'success');
+
+                await sleep(1500);
+
+                // Final generation
+                addConsoleLine('', 'timestamp');
+                addConsoleLine('// FINAL OUTPUT GENERATION', 'success');
+                addConsoleLine('[MERGING] Combining all RAG outputs...', 'timestamp');
+                await sleep(1000);
+                addConsoleLine('[FORMATTING] Applying report template...', 'timestamp');
+                await sleep(1000);
+                addConsoleLine('[✓] COMPREHENSIVE REPORT READY', 'success');
+                addConsoleLine('', 'timestamp');
+                addConsoleLine('Total processing time: 28 seconds', 'success');
+                addConsoleLine('Output: /reports/integrated_analysis.pdf', 'success');
+
+                addTerminalLine('[09:45:40] 🎉 SUCCESS: Full report generated', 'success');
+                addTerminalLine('[09:45:40] ⏱️  Total time: 28 seconds', 'info');
+                addTerminalLine('[09:45:41] 📧 Report delivered successfully', 'success');
+
+                // Deactivate workflows after delay
+                setTimeout(function() {
+                    document.querySelectorAll('.workflow-node').forEach(function(node) {
+                        node.classList.remove('active');
+                    });
+                    demoRunning = false;
+                }, 3000);
+            }
+
+            // Event listeners
+            document.getElementById('startDemoBtn').addEventListener('click', startDemo);
+
+            // Hover effects for workflows
+            document.querySelectorAll('.workflow-node').forEach(function(node) {
+                node.addEventListener('mouseenter', function() {
+                    if (!this.classList.contains('active')) {
+                        this.style.borderColor = 'currentColor';
+                    }
+                });
+                
+                node.addEventListener('mouseleave', function() {
+                    if (!this.classList.contains('active')) {
+                        this.style.borderColor = '';
+                    }
+                });
+            });
+
+            // Component node animations
+            document.querySelectorAll('.component-node').forEach(function(node) {
+                node.addEventListener('click', function() {
+                    const el = this;
+                    el.style.animation = 'pulse 0.5s ease-out';
+                    setTimeout(function() {
+                        el.style.animation = '';
+                    }, 500);
+                });
+            });
+
+            // Initial status message
+            setTimeout(function() {
+                addTerminalLine('[09:45:26] 🔍 Ready for multi-pipeline processing...', 'info');
+            }, 2000);
+        })();
+    </script>
+</body>
+</html>
